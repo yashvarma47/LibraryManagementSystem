@@ -10,5 +10,6 @@ public interface BookService {
 	public void deleteBook(int id);
 	public Books addBook(Books book);
 	public Books updateBook(Books book, int id);
+	public Books getBookByIdAndStatus(int id, Books.BookStatus status);
 	
 }

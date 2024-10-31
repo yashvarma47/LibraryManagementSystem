@@ -1,23 +1,28 @@
 package com.poc.bookmanagement.service;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.poc.bookmanagement.dao.BookRepository;
 import com.poc.bookmanagement.entities.Books;
@@ -26,230 +31,193 @@ import com.poc.bookmanagement.exceptions.InvalidInputException;
 import com.poc.bookmanagement.exceptions.ResourceNotFoundException;
 import com.poc.bookmanagement.services.BookServiceImpl;
 
+@ExtendWith(MockitoExtension.class)
 class BookServiceTest {
 
-    @Mock
-    private BookRepository bookRepository;
+	@Mock
+	private BookRepository bookRepository;
 
-    @InjectMocks
-    private BookServiceImpl bookService;
+	@InjectMocks
+	private BookServiceImpl bookService;
 
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-    
-    @Test
-    void testGetAllBooks_ThrowsResourceNotFound() {
-        // Simulate an empty repository
-        when(bookRepository.findAll()).thenReturn(new ArrayList<>());
-        
-        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
-            bookService.getAllBooks();
-        });
-        
-        assertEquals("No books found", exception.getMessage());
-    }
-    
-    @Test
-    void testGetAllBooks_Success() {
-        List<Books> books = List.of(new Books());
-        when(bookRepository.findAll()).thenReturn(books);
-        
-        List<Books> result = bookService.getAllBooks();
-        
-        assertEquals(books.size(), result.size());
-    }
-    
-    @Test
-    void testGetBookById_BookNotFound() {
-        when(bookRepository.findById(anyInt())).thenReturn(Optional.empty());
-        
-        assertThrows(ResourceNotFoundException.class, () -> {
-            bookService.getBookById(1);
-        });
-    }
+	private Books existingBook;
 
-    @Test
-    void testGetBookById_Success() {
-        Books book = new Books();
-        when(bookRepository.findById(1)).thenReturn(Optional.of(book));
-        
-        Books result = bookService.getBookById(1);
-        
-        assertNotNull(result);
-    }
+	private Books book;
 
-    @Test
-    void testAddBook_ThrowsInvalidInput() {
-        Books book = new Books();
-        book.setTitle(null); // Invalid title
+	@BeforeEach
+	public void setUp() {
+	    MockitoAnnotations.openMocks(this);
+	    
+	    // Initialize the existing book which will be used in certain tests
+	    existingBook = new Books();
+	    existingBook.setId(1);
+	    existingBook.setTitle("Test Book");
+	    existingBook.setAuthor("Author Name");
+	    existingBook.setStatus(BookStatus.SUBMITTED);
+	    existingBook.setSubmissionDate(LocalDate.now());
 
-        assertThrows(InvalidInputException.class, () -> bookService.addBook(book));
-    }
-
-    @Test
-    void testAddBook_Success() {
-        Books book = new Books();
-        book.setTitle("Title");
-        book.setAuthor("Author");
-
-        when(bookRepository.save(book)).thenReturn(book);
-
-        Books result = bookService.addBook(book);
-
-        assertEquals("Title", result.getTitle());
-        assertEquals(BookStatus.SUBMITTED, result.getStatus()); // Default status should be submitted
-    }
-    
-//    @Test
-//    void testUpdateBook_BookNotFound() {
-//        when(bookRepository.findById(anyInt())).thenReturn(Optional.empty());
-//        
-//        Books book = new Books();
-//        assertThrows(ResourceNotFoundException.class, () -> bookService.updateBook(book, 1));
-//    }
-
-    @Test
-    void testUpdateBook_Success() {
-        // Given
-        Books existingBook = new Books();
-        existingBook.setId(1);
-        existingBook.setTitle("Original Title"); // Initialize title or other properties as needed
-        existingBook.setAuthor("Original Author"); // Initialize other properties if necessary
-
-        // Mock the repository to return the existing book
-        when(bookRepository.findById(1)).thenReturn(Optional.of(existingBook));
-
-        // Mock the save method to return the updated book
-        when(bookRepository.save(existingBook)).thenReturn(existingBook);
-
-        // New book details for update
-        Books bookToUpdate = new Books();
-        bookToUpdate.setTitle("Updated Title"); // Set the new title
-
-        // When
-        Books result = bookService.updateBook(bookToUpdate, 1);
-
-        // Then
-        assertNotNull(result); // Check if result is not null
-        assertEquals("Updated Title", result.getTitle()); // Check that the title has been updated
-    }
+	    // Optionally initialize another book instance for tests
+	    book = new Books();
+	    book.setTitle("Sample Book");
+	    book.setAuthor("Author Name");
+	    book.setStatus(BookStatus.SUBMITTED);
+	}
 
 
+	@Test
+	void testGetAllBooks() {
+		when(bookRepository.findAll()).thenReturn(Arrays.asList(book));
 
-    @Test
-    void testDeleteBook_BookNotFound() {
-        when(bookRepository.findById(anyInt())).thenReturn(Optional.empty());
+		List<Books> books = bookService.getAllBooks();
 
-        assertThrows(ResourceNotFoundException.class, () -> bookService.deleteBook(1));
-    }
+		assertNotNull(books);
+		assertEquals(1, books.size());
+		assertEquals("Sample Book", books.get(0).getTitle());
+	}
 
-    @Test
-    void testDeleteBook_NotSubmitted() {
-        Books book = new Books();
-        book.setStatus(BookStatus.ISSUED); // Not submitted, hence should fail
-        
-        when(bookRepository.findById(1)).thenReturn(Optional.of(book));
-        
-        assertThrows(InvalidInputException.class, () -> bookService.deleteBook(1));
-    }
+	@Test
+	void testGetAllBooksEmpty() {
+		when(bookRepository.findAll()).thenReturn(Arrays.asList());
 
-    @Test
-    void testDeleteBook_Success() {
-        Books book = new Books();
-        book.setStatus(BookStatus.SUBMITTED); // Valid for deletion
-        
-        when(bookRepository.findById(1)).thenReturn(Optional.of(book));
-        
-        bookService.deleteBook(1);
-        
-        verify(bookRepository, times(1)).delete(book); // Verifies that delete was called exactly once
-    }
-    
-//    @Test
-//    void testUpdateBook_IssuedBook_Success() {
-//        // Given
-//        Books existingBook = new Books();
-//        existingBook.setId(1);
-//        existingBook.setTitle("Original Title");
-//        existingBook.setAuthor("Original Author");
-//        existingBook.setStatus(BookStatus.SUBMITTED); // Initially submitted
-//
-//        // Mock the repository to return the existing book
-//        when(bookRepository.findById(1)).thenReturn(Optional.of(existingBook));
-//
-//        // New book details for update to issued
-//        Books bookToUpdate = new Books();
-//        bookToUpdate.setStatus(BookStatus.ISSUED);
-//        bookToUpdate.setIssuerName("John Doe"); // Set the issuer name
-//
-//        // When
-//        Books result = bookService.updateBook(bookToUpdate, 1);
-//
-//        // Then
-//        assertNotNull(result);
-//        assertEquals(BookStatus.ISSUED, result.getStatus());
-//        assertEquals("John Doe", result.getIssuerName());
-//        assertNotNull(result.getIssueDate()); // Issue date should be set
-//        assertNull(result.getSubmissionDate()); // Submission date should be null
-//    }
+		Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+			bookService.getAllBooks();
+		});
 
-//    @Test
-//    void testUpdateBook_SubmittedBook_Success() {
-//        // Given
-//        Books existingBook = new Books();
-//        existingBook.setId(1);
-//        existingBook.setTitle("Original Title");
-//        existingBook.setAuthor("Original Author");
-//        existingBook.setStatus(BookStatus.ISSUED); // Initially issued
-//
-//        // Mock the repository to return the existing book
-//        when(bookRepository.findById(1)).thenReturn(Optional.of(existingBook));
-//
-//        // New book details for update to submitted
-//        Books bookToUpdate = new Books();
-//        bookToUpdate.setStatus(BookStatus.SUBMITTED);
-//
-//        // When
-//        Books result = bookService.updateBook(bookToUpdate, 1);
-//
-//        // Then
-//        assertNotNull(result);
-//        assertEquals(BookStatus.SUBMITTED, result.getStatus());
-//        assertNull(result.getIssuerName()); // Issuer name should be null
-//        assertNull(result.getIssueDate()); // Issue date should be null
-//        assertNotNull(result.getSubmissionDate()); // Submission date should be set
-//    }
+		assertEquals("No books found", exception.getMessage());
+	}
 
-    @Test
-    void testUpdateBook_BookNotFound() {
-        when(bookRepository.findById(anyInt())).thenReturn(Optional.empty());
+	@Test
+	void testGetBookById() {
+		when(bookRepository.findById(1)).thenReturn(Optional.of(book));
 
-        Books book = new Books();
-        assertThrows(ResourceNotFoundException.class, () -> bookService.updateBook(book, 1));
-    }
+		Books foundBook = bookService.getBookById(1);
 
-    @Test
-    void testUpdateBook_IssuerNameMissing() {
-        // Given
-        Books existingBook = new Books();
-        existingBook.setId(1);
-        existingBook.setTitle("Original Title");
-        existingBook.setAuthor("Original Author");
-        existingBook.setStatus(BookStatus.SUBMITTED); // Initially submitted
+		assertNotNull(foundBook);
+		assertEquals("Sample Book", foundBook.getTitle());
+	}
 
-        // Mock the repository to return the existing book
-        when(bookRepository.findById(1)).thenReturn(Optional.of(existingBook));
+	@Test
+	void testGetBookByIdNotFound() {
+		when(bookRepository.findById(999)).thenReturn(Optional.empty());
 
-        // New book details for update to issued without issuer name
-        Books bookToUpdate = new Books();
-        bookToUpdate.setStatus(BookStatus.ISSUED); // Set status to issued
+		Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+			bookService.getBookById(999);
+		});
 
-        // When & Then
-        assertThrows(InvalidInputException.class, () -> bookService.updateBook(bookToUpdate, 1));
-    }
+		assertEquals("Book not found with id : 999", exception.getMessage());
+	}
 
-    
-    
+	@Test
+	void testAddBook() {
+		when(bookRepository.save(any(Books.class))).thenReturn(book);
+
+		Books addedBook = bookService.addBook(book);
+
+		assertNotNull(addedBook);
+		assertEquals("Sample Book", addedBook.getTitle());
+		verify(bookRepository, times(1)).save(book);
+	}
+
+	@Test
+	void testUpdateBook() {
+		Books updatedBook = new Books();
+		updatedBook.setTitle("Updated Book");
+		updatedBook.setAuthor("Updated Author");
+		updatedBook.setStatus(BookStatus.ISSUED);
+		updatedBook.setIssuerName("John Doe");
+
+		when(bookRepository.findById(1)).thenReturn(Optional.of(book));
+		when(bookRepository.save(any(Books.class))).thenReturn(updatedBook);
+
+		Books result = bookService.updateBook(updatedBook, 1);
+
+		assertEquals("Updated Book", result.getTitle());
+		assertEquals("Updated Author", result.getAuthor());
+		assertEquals(BookStatus.ISSUED, result.getStatus());
+		assertNotNull(result.getIssuerName());
+	}
+
+	@Test
+	void testUpdateBookNotFound() {
+		when(bookRepository.findById(999)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+			bookService.updateBook(book, 999);
+		});
+
+		assertEquals("Book not found with id: 999", exception.getMessage());
+	}
+
+	@Test
+	void testDeleteBook() {
+		book.setStatus(BookStatus.SUBMITTED);
+		when(bookRepository.findById(1)).thenReturn(Optional.of(book));
+		doNothing().when(bookRepository).delete(book);
+
+		assertDoesNotThrow(() -> bookService.deleteBook(1));
+		verify(bookRepository, times(1)).delete(book);
+	}
+
+	@Test
+	void testDeleteBookNotFound() {
+		when(bookRepository.findById(999)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+			bookService.deleteBook(999);
+		});
+
+		assertEquals("Book not found with id: 999", exception.getMessage());
+	}
+
+	@Test
+	void testDeleteBookInvalidStatus() {
+		book.setStatus(BookStatus.ISSUED);
+		when(bookRepository.findById(1)).thenReturn(Optional.of(book));
+
+		Exception exception = assertThrows(InvalidInputException.class, () -> {
+			bookService.deleteBook(1);
+		});
+
+		assertEquals("Only submitted book can be deleted!", exception.getMessage());
+	}
+
+	@Test
+	void testGetBookByIdAndStatus() {
+		when(bookRepository.findByIdAndStatus(1, BookStatus.SUBMITTED)).thenReturn(Optional.of(book));
+
+		Books foundBook = bookService.getBookByIdAndStatus(1, BookStatus.SUBMITTED);
+
+		assertNotNull(foundBook);
+		assertEquals("Sample Book", foundBook.getTitle());
+	}
+
+	@Test
+	void testGetBookByIdAndStatusNotFound() {
+		when(bookRepository.findByIdAndStatus(999, BookStatus.SUBMITTED)).thenReturn(Optional.empty());
+
+		Exception exception = assertThrows(ResourceNotFoundException.class, () -> {
+			bookService.getBookByIdAndStatus(999, BookStatus.SUBMITTED);
+		});
+
+		assertEquals("Book not found with id: 999 and status: SUBMITTED", exception.getMessage());
+	}
+
+	@Test
+	public void testUpdateBook_AlreadySubmitted() {
+	    // Arrange
+	    Books bookToUpdate = new Books();
+	    bookToUpdate.setStatus(BookStatus.SUBMITTED); // Trying to submit an already submitted book
+
+	    // Mock the behavior of the repository
+	    when(bookRepository.findById(1)).thenReturn(Optional.of(existingBook));
+
+	    // Act & Assert
+	    InvalidInputException exception = assertThrows(InvalidInputException.class, () -> {
+	        bookService.updateBook(bookToUpdate, 1);
+	    });
+
+	    // Check the exception message
+	    assertEquals("This book is already submitted.", exception.getMessage());
+	}
+
 }

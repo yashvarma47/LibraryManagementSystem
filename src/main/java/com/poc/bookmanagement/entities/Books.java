@@ -8,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 
@@ -17,9 +19,13 @@ public class Books {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private int id;
+
+    @NotBlank(message = "Book title cannot be null or empty")
 	private String title;
+
+    @NotBlank(message = "Book author cannot be null or empty")
 	private String author;
-	
+
 	//new fields added
 	private LocalDate issueDate;
     private LocalDate submissionDate;
